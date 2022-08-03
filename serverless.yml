@@ -1,0 +1,83 @@
+service: feature-flag-api
+
+plugins:
+  - serverless-python-requirements
+  - serverless-offline
+  - serverless-deployment-bucket
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux
+    usePoetry: false
+  serverless-iam-roles-per-function:
+    defaultInherit: true
+
+package:
+  exclude:
+    - .git/**
+    - .idea/**
+    - .pytest_cache/**
+    - .serverless/**
+    - .vscode/**
+    - env/**
+    - venv/**
+    - node_modules/**
+    - app/tests/**
+    - setup/**
+    - .flake8
+    - .pre-commit-config.yml
+    - pyproject.toml
+    - .vscode
+    - .isort.cfg
+    - README.md
+    - sonar-project.properties
+
+provider:
+  name: aws
+  runtime: python3.9
+  stage: ${env:STAGE}
+  region: ${env:LAMBDA_REGION}
+  environment:
+    STAGE: ${env:STAGE}
+    DYNAMO_DB_HOST: ${env:DYNAMO_DB_HOST}
+    DYNAMO_DB_REGION: ${env:DYNAMO_DB_REGION}
+    LAMBDA_REGION: ${env:LAMBDA_REGION}
+    APP_NAME: ${env:APP_NAME}
+    FEATURE_FLAGS_TBL: ${env:FEATURE_FLAGS_TBL}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:BatchGetItem
+            - dynamodb:Scan
+            - dynamodb:Query
+            - dynamodb:ConditionCheckItem
+          Resource:
+            - arn:aws:dynamodb:*:*:table/switchboard
+  deploymentBucket:
+    name: ${env:LAMBDA_BUCKET}
+
+functions:
+  getFeatureFlags:
+    handler: handler.get_feature_flags
+    timeout: 900
+    memorySize: 1564
+    events:
+      - httpApi:
+          path: /check-feature-list
+          method: POST
+      - httpApi:
+          path: /feature-flags
+          method: GET
+      - httpApi:
+          path: /add_condition
+          method: POST
+      - httpApi:
+          path: /remove_condition
+          method: POST
+      - httpApi:
+          path: /status
+          method: POST
+
